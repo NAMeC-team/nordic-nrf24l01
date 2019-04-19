@@ -75,6 +75,8 @@ private:
 
 	void spi_get_register(RegisterAddress register_address, uint8_t *value);
 
+	void spi_get_register(RegisterAddress register_address, uint8_t *value, size_t length);
+
 };
 
 

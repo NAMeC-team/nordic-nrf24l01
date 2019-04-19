@@ -63,15 +63,30 @@ void NRF24L01::spi_set_register(RegisterAddress register_address, uint8_t value)
 
 void NRF24L01::spi_get_register(RegisterAddress register_address, uint8_t *value)
 {
-	static char data;
+	static char reg;
 	static char resp[2];
 
-	data = (static_cast<char>(register_address) | static_cast<char>(RegisterAddress::OP_READ));
+	reg = (static_cast<char>(register_address) | static_cast<char>(RegisterAddress::OP_READ));
 
-	_spi->write(&data, 1, resp, sizeof(resp));
+	_spi->write(&reg, 1, resp, sizeof(resp));
 
 	*value = resp[1];
-
 }
 
+void NRF24L01::spi_get_register(RegisterAddress register_address, uint8_t *value, size_t length)
+{
+	static char *data;
+	static char reg;
+	// create a dynamic buffer to send data
+	data = new char[length];
+	// format register value
+	reg = (static_cast<char>(register_address) | static_cast<char>(RegisterAddress::OP_READ));
+	// set register value to the first byte
+	data[0] = reg;
+
+
+	// spi write sequence
+	_spi->write(data, length, (char *)value, length);
+
+}
 
