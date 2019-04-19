@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 #include "mbed.h"
-e
+
 #include "nrf24l01/nrf24l01.h"
 
-namespace sixtron {
-
 NRF24L01::NRF24L01(SPI *spi, PinName com_ce, PinName irq):
-		_spi(&spi), _com_ce(com_ce), _irq(irq)
+		_com_ce(com_ce), _irq(irq)
 {
+	_spi = spi;
+	// TODO: set spi format ?
+	_spi->format(8,0);
 	_com_ce = 0;
 }
 
@@ -39,6 +40,38 @@ void NRF24L01::attach(Callback<void()> func)
 
 }
 
+void NRF24L01::send_packet(uint8_t *packet, size_t packet_length, uint8_t *response, size_t response_length)
+{
+	//TODO : to be implemented
+}
 
-} // namespace sixtron
+void NRF24L01::spi_set_register(RegisterAddress register_address, uint8_t value)
+{
+	static char data[2];
+	static char resp[2];
+//	register_address |= RegisterAddress::OP_WRITE;
+
+	// formatting data
+	data[0] = (static_cast<char>(register_address) | static_cast<char>(RegisterAddress::OP_WRITE));
+	data[1] = value;
+
+	_spi->write(data, sizeof(data), resp, sizeof(resp));
+
+	//ignore response
+
+}
+
+void NRF24L01::spi_get_register(RegisterAddress register_address, uint8_t *value)
+{
+	static char data;
+	static char resp[2];
+
+	data = (static_cast<char>(register_address) | static_cast<char>(RegisterAddress::OP_READ));
+
+	_spi->write(&data, 1, resp, sizeof(resp));
+
+	*value = resp[1];
+
+}
+
 

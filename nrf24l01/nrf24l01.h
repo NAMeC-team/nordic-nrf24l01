@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef CATIE_SIXTRON_NRF24L01_H_
-#define CATIE_SIXTRON_NRF24L01_H_
-
-namespace sixtron {
+#ifndef CATIE_NRF24L01_H_
+#define CATIE_NRF24L01_H_
 
 class NRF24L01
 {
-	enum class Register : uint8_t {
+	enum class RegisterAddress : uint8_t {
 		// Operations
 		OP_READ             = 0x00,
 		OP_WRITE            = 0x20,
@@ -64,13 +62,21 @@ public:
 
 	void attach(Callback<void()> func);
 
+
+
 private:
 	SPI *_spi;
 	DigitalOut _com_ce;
 	InterruptIn _irq;
+
+	void send_packet(uint8_t *packet, size_t packet_length, uint8_t *response, size_t response_length);
+
+	void spi_set_register(RegisterAddress register_address, uint8_t value);
+
+	void spi_get_register(RegisterAddress register_address, uint8_t *value);
+
 };
 
-} // namespace sixtron
 
-#endif // CATIE_SIXTRON_NRF24L01_H_
+#endif // CATIE_NRF24L01_H_
 
