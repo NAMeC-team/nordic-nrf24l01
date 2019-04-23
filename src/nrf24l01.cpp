@@ -80,8 +80,32 @@ void NRF24L01::spi_write_register(RegisterAddress register_address, uint8_t valu
 	data[0] = (static_cast<char>(register_address) | static_cast<char>(RegisterAddress::OP_WRITE));
 	data[1] = value;
 
-	//ignore response
+	//TODO: ignore response?
 	_spi->write(data, sizeof(data), resp, sizeof(resp));
+}
+
+void NRF24L01::spi_write_register(RegisterAddress register_address, const char *value, uint8_t length)
+{
+	static uint8_t reg;
+	static char *data;
+	static char resp[2];
+
+	// create a dynamic buffer to use mbed spi API
+	data = new char[length];
+
+	// formatting data
+	reg = (static_cast<char>(register_address) | static_cast<char>(RegisterAddress::OP_WRITE));
+	data[0] = reg;
+
+	for (int i = 1; i < length; i++) {
+		data[i] = *value;
+		value++;
+	}
+
+	//TODO: ignore response?
+	_spi->write(data, length, resp, sizeof(resp));
+
+	delete data;
 }
 
 void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *value)
@@ -100,14 +124,13 @@ void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *valu
 {
 	static char *data;
 	static char reg;
-	// create a dynamic buffer to send data
-	data = new char[length];
+
 	// format register value
 	reg = (static_cast<char>(register_address) | static_cast<char>(RegisterAddress::OP_READ));
-	// set register value to the first byte
-	data[0] = reg;
 
 	// spi write sequence
-	_spi->write(data, length, (char *)value, length);
+	_spi->write(&reg, 1, (char *)value, length);
+
+	delete data;
 }
 

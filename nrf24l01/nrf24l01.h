@@ -80,6 +80,8 @@ private:
 
 	void spi_write_register(RegisterAddress register_address, uint8_t value);
 
+	void spi_write_register(RegisterAddress register_address, const char *value, uint8_t length);
+
 	void spi_read_register(RegisterAddress register_address, uint8_t *value);
 
 	void spi_read_register(RegisterAddress register_address, uint8_t *value, size_t length);
