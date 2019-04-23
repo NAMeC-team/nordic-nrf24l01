@@ -71,6 +71,15 @@ public:
 		_2MBPS				= 2
 	};
 
+	enum class RxAddressPipe : uint8_t {
+		RX_ADDR_P0			= 0,
+		RX_ADDR_P1			= 1,
+		RX_ADDR_P2			= 2,
+		RX_ADDR_P3			= 3,
+		RX_ADDR_P4			= 4,
+		RX_ADDR_P5			= 5
+	};
+
 	NRF24L01(SPI *spi, PinName com_ce, PinName irq);
 
 	void initialize(OperationMode mode, DataRate data_rate, uint8_t rf_channel, uint8_t *hw_addr, uint8_t payload_size);
@@ -79,21 +88,27 @@ public:
 
 	void power_up(bool enable);
 
-	void set_rx_tx_control(bool rx_tx);
+	void set_rx_tx_control(OperationMode mode);
 
-	void set_power_up_and_rx_tx_control(bool rx_tx);
+	void set_power_up_and_rx_tx_control(OperationMode mode);
 
 	void set_auto_acknowledgement(bool enable);
 
 	void set_auto_acknowledgement(uint8_t pipe, bool enable);
 
-	void set_payload_size(uint8_t payload_size);
+	void set_payload_size(RxAddressPipe rx_addr_pipe, uint8_t payload_size);
 
 	uint8_t payload_size(void);
 
 	void set_channel(uint8_t channel);
 
 	void set_com_ce(uint8_t level);
+
+	void set_data_rate(DataRate data_rate);
+
+	DataRate data_rate(void);
+
+	void attach_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, uint8_t payload_size);
 
 	void send_packet(const void *buffer, uint8_t length);
 
@@ -106,6 +121,7 @@ private:
 	uint8_t _channel;
 	uint8_t _payload_size;
 	OperationMode _mode;
+	DataRate _data_rate;
 
 	void spi_write_payload(const char *buffer, uint8_t length);
 

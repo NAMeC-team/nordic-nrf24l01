@@ -33,26 +33,32 @@ NRF24L01::NRF24L01(SPI *spi, PinName com_ce, PinName irq):
 	_channel = 0;
 	_payload_size = MAX_PAYLOAD_SIZE;
 	_mode = OperationMode::TRANSCEIVER;
+	_data_rate = DataRate::_2MBPS;
 }
 
-void NRF24L01::initialize(OperationMode mode, DataRate data_rate, uint8_t rf_channel, uint8_t *hw_addr, uint8_t payload_size)
+void NRF24L01::initialize(OperationMode mode, DataRate data_rate,
+		uint8_t rf_channel, uint8_t *hw_addr, uint8_t payload_size)
 {
-	//TODO: dev init in accord with operation mode (Transceiver or Receiver)
+	// set mode to the member
+	_mode = mode;
+
+	//TODO: dev init in accord with the operation mode (Transceiver or Receiver)
 	switch(mode) {
-		case OperationMode::TRANSCEIVER:
-			break;
 		case OperationMode::RECEIVER:
+			set_power_up_and_rx_tx_control(mode);
+			// disable auto acknowledgement
+			set_auto_acknowledgement(false);
+			// TODO: use the same address width as the PTX device
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// set frequency channel
+			set_channel(rf_channel);
+			// set date rate
+			set_data_rate(data_rate);
+			break;
+		case OperationMode::TRANSCEIVER:
+			set_rx_tx_control(mode);
 			break;
 	}
-	set_channel(rf_channel);
-	// disabling auto acknowledgement
-	set_auto_acknowledgement(false);
-	// setting address
-	spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, sizeof(hw_addr));
-	// enabling only the pipe 1
-	spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x01);
-	// settin payload size in rx p0 to 1
-
 }
 
 void NRF24L01::attach(Callback<void()> func)
@@ -84,12 +90,12 @@ void NRF24L01::power_up(bool enable)
 	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
 }
 
-void NRF24L01::set_rx_tx_control(bool rx_tx)
+void NRF24L01::set_rx_tx_control(OperationMode mode)
 {
 	uint8_t reg_config = 0;
 	// read current status of CONFIG register
 	reg_config = spi_read_register(RegisterAddress::REG_CONFIG);
-	if (rx_tx) {
+	if (mode == OperationMode::RECEIVER) {
 		// Rx control
 		reg_config |= (1 << 0);
 	} else {
@@ -101,13 +107,13 @@ void NRF24L01::set_rx_tx_control(bool rx_tx)
 
 }
 
-void NRF24L01::set_power_up_and_rx_tx_control(bool rx_tx)
+void NRF24L01::set_power_up_and_rx_tx_control(OperationMode mode)
 {
 	uint8_t reg_config = 0;
 	// read current status of CONFIG register
 	reg_config = spi_read_register(RegisterAddress::REG_CONFIG);
 
-	if (rx_tx) {
+	if (mode == OperationMode::RECEIVER) {
 		// Rx control
 		reg_config = ((reg_config & 0xEC) | 0x03);
 	} else {
@@ -145,10 +151,31 @@ void NRF24L01::set_auto_acknowledgement(uint8_t pipe, bool enable)
 	}
 }
 
-void NRF24L01::set_payload_size(uint8_t payload_size)
+void NRF24L01::set_payload_size(RxAddressPipe rx_addr_pipe, uint8_t payload_size)
 {
 	if (payload_size > MAX_PAYLOAD_SIZE) {
 		payload_size = MAX_PAYLOAD_SIZE;
+	}
+
+	switch(rx_addr_pipe) {
+		case RxAddressPipe::RX_ADDR_P0:
+			spi_write_register(RegisterAddress::REG_RX_PW_P0, payload_size);
+			break;
+		case RxAddressPipe::RX_ADDR_P1:
+			spi_write_register(RegisterAddress::REG_RX_PW_P1, payload_size);
+			break;
+		case RxAddressPipe::RX_ADDR_P2:
+			spi_write_register(RegisterAddress::REG_RX_PW_P2, payload_size);
+			break;
+		case RxAddressPipe::RX_ADDR_P3:
+			spi_write_register(RegisterAddress::REG_RX_PW_P3, payload_size);
+			break;
+		case RxAddressPipe::RX_ADDR_P4:
+			spi_write_register(RegisterAddress::REG_RX_PW_P4, payload_size);
+			break;
+		case RxAddressPipe::RX_ADDR_P5:
+			spi_write_register(RegisterAddress::REG_RX_PW_P5, payload_size);
+			break;
 	}
 	_payload_size = payload_size;
 }
@@ -172,6 +199,97 @@ void NRF24L01::set_channel(uint8_t channel)
 void NRF24L01::set_com_ce(uint8_t level)
 {
 	_com_ce = level;
+}
+
+void NRF24L01::set_data_rate(DataRate data_rate)
+{
+	uint8_t reg_rf_setup = 0;
+
+	// read current value of RF setup register
+	reg_rf_setup = spi_read_register(RegisterAddress::REG_RF_SETUP);
+	// clear rf data rate value to 1 Mbps
+	reg_rf_setup = (reg_rf_setup & 0xD7);
+	switch(data_rate) {
+		case DataRate::_250KBPS:
+			reg_rf_setup |= (1 << 5);
+			_data_rate = DataRate::_250KBPS;
+			break;
+		case DataRate::_1MBPS:
+			// nothing, already updating
+			_data_rate = DataRate::_1MBPS;
+			break;
+		case DataRate::_2MBPS:
+			reg_rf_setup |= (1 << 3);
+			_data_rate = DataRate::_2MBPS;
+			break;
+	}
+	// write new data rate
+	spi_write_register(RegisterAddress::REG_RF_SETUP, reg_rf_setup);
+}
+
+NRF24L01::DataRate NRF24L01::data_rate(void)
+{
+	DataRate data_rate;
+	uint8_t reg_rf_setup;
+
+	reg_rf_setup = spi_read_register(RegisterAddress::REG_RF_SETUP);
+
+	if (reg_rf_setup & 0x08) {
+		_data_rate = DataRate::_2MBPS;
+	} else if (reg_rf_setup & 0x20) {
+		_data_rate = DataRate::_250KBPS;
+	} else {
+		_data_rate = DataRate::_1MBPS;
+	}
+
+	return _data_rate;
+}
+
+void NRF24L01::attach_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, uint8_t payload_size)
+{
+
+	switch(rx_address_pipe) {
+		case RxAddressPipe::RX_ADDR_P0:
+			// set rx addr to pipe 0
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x01);
+			break;
+		case RxAddressPipe::RX_ADDR_P1:
+			// set rx addr to pipe 0
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x02);
+			break;
+		case RxAddressPipe::RX_ADDR_P2:
+			// set rx addr to pipe 0
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x04);
+			break;
+		case RxAddressPipe::RX_ADDR_P3:
+			// set rx addr to pipe 0
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x08);
+			break;
+		case RxAddressPipe::RX_ADDR_P4:
+			// set rx addr to pipe 0
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x10);
+			break;
+		case RxAddressPipe::RX_ADDR_P5:
+			// set rx addr to pipe 0
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x20);
+			break;
+
+	}
+	// set payload
+	set_payload_size(rx_address_pipe , payload_size);
+
 }
 
 void NRF24L01::send_packet(const void *tx_packet, uint8_t length)
