@@ -68,6 +68,8 @@ public:
 
 	void set_channel(uint8_t channel);
 
+	void set_com_ce(uint8_t level);
+
 	void send_packet(const void *buffer, uint8_t length);
 
 	void read_packet(void* buffer, uint8_t length);
@@ -78,13 +80,17 @@ private:
 	InterruptIn _irq;
 	uint8_t _channel;
 
+	void spi_write_payload(const char *buffer, uint8_t length);
+
+	void spi_read_payload(char* buffer, uint8_t length);
+
 	void spi_write_register(RegisterAddress register_address, uint8_t value);
 
 	void spi_write_register(RegisterAddress register_address, const char *value, uint8_t length);
 
 	void spi_read_register(RegisterAddress register_address, uint8_t *value);
 
-	void spi_read_register(RegisterAddress register_address, uint8_t *value, size_t length);
+	void spi_read_register(RegisterAddress register_address, uint8_t *value, uint8_t length);
 
 };
 

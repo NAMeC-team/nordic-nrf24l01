@@ -58,19 +58,56 @@ void NRF24L01::set_channel(uint8_t channel)
 	spi_write_register(RegisterAddress::REG_RF_CH, channel);
 }
 
-void NRF24L01::send_packet(const void *buffer, uint8_t length)
+void NRF24L01::set_com_ce(uint8_t level)
 {
-	//TODO : to be implemented
+	_com_ce = level;
 }
 
-void NRF24L01::read_packet(void* buffer, uint8_t length)
+void NRF24L01::send_packet(const void *tx_packet, uint8_t length)
 {
-	//TODO: to be implemented
+	spi_write_payload((const char *)tx_packet, length);
+}
+
+void NRF24L01::read_packet(void *rx_packet, uint8_t length)
+{
+	spi_read_payload((char *)rx_packet, length);
 }
 
 /***************************************************************************
  * transport layer
  ***************************************************************************/
+void NRF24L01::spi_write_payload(const char *buffer, uint8_t length)
+{
+	static char *data;
+	static char resp[2];
+
+	// create a dynamic buffer to use mbed spi API
+	data = new char[length];
+
+	// formatting data
+	data[0] = static_cast<char>(RegisterAddress::OP_TX);
+
+	for (int i = 1; i < length; i++) {
+		data[i] = *buffer;
+		buffer++;
+	}
+
+	//TODO: ignore response?
+	_spi->write(data, length, resp, sizeof(resp));
+
+	delete data;
+}
+
+void NRF24L01::spi_read_payload(char* buffer, uint8_t length)
+{
+	static char reg;
+
+	reg = static_cast<char>(RegisterAddress::OP_RX);
+
+	_spi->write(&reg, 1, (char *)buffer, length);
+
+}
+
 void NRF24L01::spi_write_register(RegisterAddress register_address, uint8_t value)
 {
 	static char data[2];
@@ -120,9 +157,8 @@ void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *valu
 	*value = resp[1];
 }
 
-void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *value, size_t length)
+void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *value, uint8_t length)
 {
-	static char *data;
 	static char reg;
 
 	// format register value
@@ -131,6 +167,5 @@ void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *valu
 	// spi write sequence
 	_spi->write(&reg, 1, (char *)value, length);
 
-	delete data;
 }
 
