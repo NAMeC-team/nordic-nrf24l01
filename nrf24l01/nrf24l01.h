@@ -19,6 +19,8 @@
 
 class NRF24L01
 {
+public:
+
 	enum class RegisterAddress : uint8_t {
 		// Operations
 		OP_READ             = 0x00,
@@ -57,25 +59,30 @@ class NRF24L01
 		REG_DYNPD           = 0x1c,
 		REG_FEATURE         = 0x1d
 	};
-public:
+
 	NRF24L01(SPI *spi, PinName com_ce, PinName irq);
 
 	void attach(Callback<void()> func);
 
+	void initialize(uint8_t rf_channel);
 
+	void set_channel(uint8_t channel);
+
+	void send_packet(const void *buffer, uint8_t length);
+
+	void read_packet(void* buffer, uint8_t length);
 
 private:
 	SPI *_spi;
 	DigitalOut _com_ce;
 	InterruptIn _irq;
+	uint8_t _channel;
 
-	void send_packet(uint8_t *packet, size_t packet_length, uint8_t *response, size_t response_length);
+	void spi_write_register(RegisterAddress register_address, uint8_t value);
 
-	void spi_set_register(RegisterAddress register_address, uint8_t value);
+	void spi_read_register(RegisterAddress register_address, uint8_t *value);
 
-	void spi_get_register(RegisterAddress register_address, uint8_t *value);
-
-	void spi_get_register(RegisterAddress register_address, uint8_t *value, size_t length);
+	void spi_read_register(RegisterAddress register_address, uint8_t *value, size_t length);
 
 };
 

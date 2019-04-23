@@ -25,8 +25,17 @@ NRF24L01::NRF24L01(SPI *spi, PinName com_ce, PinName irq):
 	// TODO: set spi format ?
 	_spi->format(8,0);
 	_com_ce = 0;
+	_channel = 0;
 }
 
+void NRF24L01::initialize(uint8_t rf_channel)
+{
+	set_channel(channel);
+	// disabling auto acknowledgement
+	spi_write_register(RegisterAddress::REG_EN_AA, 0x00);
+	// setting the appropriate channel
+	spi_write_register(RegisterAddress::REG_RF_CH, _channel);
+}
 
 void NRF24L01::attach(Callback<void()> func)
 {
@@ -37,31 +46,45 @@ void NRF24L01::attach(Callback<void()> func)
 		_irq.fall(NULL);
 		_irq.disable_irq();
 	}
-
 }
 
-void NRF24L01::send_packet(uint8_t *packet, size_t packet_length, uint8_t *response, size_t response_length)
+void NRF24L01::set_channel(uint8_t channel)
+{
+	uint8_t max_channel = 127;
+
+	if (channel > max_channel) {
+		channel = max_channel;
+	}
+	spi_write_register(RegisterAddress::REG_RF_CH, channel);
+}
+
+void NRF24L01::send_packet(const void *buffer, uint8_t length)
 {
 	//TODO : to be implemented
 }
 
-void NRF24L01::spi_set_register(RegisterAddress register_address, uint8_t value)
+void NRF24L01::read_packet(void* buffer, uint8_t length)
+{
+	//TODO: to be implemented
+}
+
+/***************************************************************************
+ * transport layer
+ ***************************************************************************/
+void NRF24L01::spi_write_register(RegisterAddress register_address, uint8_t value)
 {
 	static char data[2];
 	static char resp[2];
-//	register_address |= RegisterAddress::OP_WRITE;
 
 	// formatting data
 	data[0] = (static_cast<char>(register_address) | static_cast<char>(RegisterAddress::OP_WRITE));
 	data[1] = value;
 
-	_spi->write(data, sizeof(data), resp, sizeof(resp));
-
 	//ignore response
-
+	_spi->write(data, sizeof(data), resp, sizeof(resp));
 }
 
-void NRF24L01::spi_get_register(RegisterAddress register_address, uint8_t *value)
+void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *value)
 {
 	static char reg;
 	static char resp[2];
@@ -73,7 +96,7 @@ void NRF24L01::spi_get_register(RegisterAddress register_address, uint8_t *value
 	*value = resp[1];
 }
 
-void NRF24L01::spi_get_register(RegisterAddress register_address, uint8_t *value, size_t length)
+void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *value, size_t length)
 {
 	static char *data;
 	static char reg;
@@ -84,9 +107,7 @@ void NRF24L01::spi_get_register(RegisterAddress register_address, uint8_t *value
 	// set register value to the first byte
 	data[0] = reg;
 
-
 	// spi write sequence
 	_spi->write(data, length, (char *)value, length);
-
 }
 
