@@ -64,7 +64,15 @@ public:
 
 	void attach(Callback<void()> func);
 
-	void initialize(uint8_t rf_channel);
+	void initialize(uint8_t rf_channel, uint8_t *hw_addr, uint8_t payload_size);
+
+	void enable_auto_acknoledgement(void);
+
+	void disable_auto_acknoledgement(void);
+
+	void set_payload_size(uint8_t payload_size);
+
+	uint8_t payload_size(void);
 
 	void set_channel(uint8_t channel);
 
@@ -79,6 +87,7 @@ private:
 	DigitalOut _com_ce;
 	InterruptIn _irq;
 	uint8_t _channel;
+	uint8_t _payload_size;
 
 	void spi_write_payload(const char *buffer, uint8_t length);
 

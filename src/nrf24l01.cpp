@@ -18,6 +18,10 @@
 
 #include "nrf24l01/nrf24l01.h"
 
+namespace {
+#define MAX_PAYLOAD_SIZE	32
+}
+
 NRF24L01::NRF24L01(SPI *spi, PinName com_ce, PinName irq):
 		_com_ce(com_ce), _irq(irq)
 {
@@ -26,15 +30,20 @@ NRF24L01::NRF24L01(SPI *spi, PinName com_ce, PinName irq):
 	_spi->format(8,0);
 	_com_ce = 0;
 	_channel = 0;
+	_payload_size = MAX_PAYLOAD_SIZE;
 }
 
-void NRF24L01::initialize(uint8_t rf_channel)
+void NRF24L01::initialize(uint8_t rf_channel, uint8_t *hw_addr, uint8_t payload_size)
 {
 	set_channel(rf_channel);
 	// disabling auto acknowledgement
-	spi_write_register(RegisterAddress::REG_EN_AA, 0x00);
-	// setting the appropriate channel
-	spi_write_register(RegisterAddress::REG_RF_CH, _channel);
+	disable_auto_acknoledgement();
+	// setting address
+	spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, sizeof(hw_addr));
+	// enabling only the pipe 1
+	spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x01);
+	// settin payload size in rx p0 to 1
+
 }
 
 void NRF24L01::attach(Callback<void()> func)
@@ -48,6 +57,29 @@ void NRF24L01::attach(Callback<void()> func)
 	}
 }
 
+void NRF24L01::enable_auto_acknoledgement(void)
+{
+	spi_write_register(RegisterAddress::REG_EN_AA, 0x01);
+}
+
+void NRF24L01::disable_auto_acknoledgement(void)
+{
+	spi_write_register(RegisterAddress::REG_EN_AA, 0x00);
+}
+
+void NRF24L01::set_payload_size(uint8_t payload_size)
+{
+	if (payload_size > MAX_PAYLOAD_SIZE) {
+		payload_size = MAX_PAYLOAD_SIZE;
+	}
+	_payload_size = payload_size;
+}
+
+uint8_t NRF24L01::payload_size(void)
+{
+	return _payload_size;
+}
+
 void NRF24L01::set_channel(uint8_t channel)
 {
 	uint8_t max_channel = 127;
@@ -56,6 +88,7 @@ void NRF24L01::set_channel(uint8_t channel)
 		channel = max_channel;
 	}
 	spi_write_register(RegisterAddress::REG_RF_CH, channel);
+	_channel = channel;
 }
 
 void NRF24L01::set_com_ce(uint8_t level)
