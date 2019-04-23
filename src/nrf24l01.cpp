@@ -48,8 +48,6 @@ void NRF24L01::initialize(OperationMode mode, DataRate data_rate,
 			set_power_up_and_rx_tx_control(mode);
 			// disable auto acknowledgement
 			set_auto_acknowledgement(false);
-			// TODO: use the same address width as the PTX device
-			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
 			// set frequency channel
 			set_channel(rf_channel);
 			// set date rate
