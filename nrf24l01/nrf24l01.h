@@ -60,15 +60,32 @@ public:
 		REG_FEATURE         = 0x1d
 	};
 
+	enum class OperationMode : uint8_t {
+		TRANSCEIVER			= 0x00,
+		RECEIVER			= 0x01
+	};
+
+	enum class DataRate : uint8_t {
+		_250KBPS			= 0,
+		_1MBPS				= 1,
+		_2MBPS				= 2
+	};
+
 	NRF24L01(SPI *spi, PinName com_ce, PinName irq);
+
+	void initialize(OperationMode mode, DataRate data_rate, uint8_t rf_channel, uint8_t *hw_addr, uint8_t payload_size);
 
 	void attach(Callback<void()> func);
 
-	void initialize(uint8_t rf_channel, uint8_t *hw_addr, uint8_t payload_size);
+	void power_up(bool enable);
 
-	void enable_auto_acknoledgement(void);
+	void set_rx_tx_control(bool rx_tx);
 
-	void disable_auto_acknoledgement(void);
+	void set_power_up_and_rx_tx_control(bool rx_tx);
+
+	void set_auto_acknowledgement(bool enable);
+
+	void set_auto_acknowledgement(uint8_t pipe, bool enable);
 
 	void set_payload_size(uint8_t payload_size);
 
@@ -88,6 +105,7 @@ private:
 	InterruptIn _irq;
 	uint8_t _channel;
 	uint8_t _payload_size;
+	OperationMode _mode;
 
 	void spi_write_payload(const char *buffer, uint8_t length);
 
@@ -97,7 +115,7 @@ private:
 
 	void spi_write_register(RegisterAddress register_address, const char *value, uint8_t length);
 
-	void spi_read_register(RegisterAddress register_address, uint8_t *value);
+	uint8_t spi_read_register(RegisterAddress register_address);
 
 	void spi_read_register(RegisterAddress register_address, uint8_t *value, uint8_t length);
 

@@ -20,6 +20,7 @@
 
 namespace {
 #define MAX_PAYLOAD_SIZE	32
+#define MAX_DATA_PIPE		 6
 }
 
 NRF24L01::NRF24L01(SPI *spi, PinName com_ce, PinName irq):
@@ -31,13 +32,21 @@ NRF24L01::NRF24L01(SPI *spi, PinName com_ce, PinName irq):
 	_com_ce = 0;
 	_channel = 0;
 	_payload_size = MAX_PAYLOAD_SIZE;
+	_mode = OperationMode::TRANSCEIVER;
 }
 
-void NRF24L01::initialize(uint8_t rf_channel, uint8_t *hw_addr, uint8_t payload_size)
+void NRF24L01::initialize(OperationMode mode, DataRate data_rate, uint8_t rf_channel, uint8_t *hw_addr, uint8_t payload_size)
 {
+	//TODO: dev init in accord with operation mode (Transceiver or Receiver)
+	switch(mode) {
+		case OperationMode::TRANSCEIVER:
+			break;
+		case OperationMode::RECEIVER:
+			break;
+	}
 	set_channel(rf_channel);
 	// disabling auto acknowledgement
-	disable_auto_acknoledgement();
+	set_auto_acknowledgement(false);
 	// setting address
 	spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, sizeof(hw_addr));
 	// enabling only the pipe 1
@@ -57,14 +66,83 @@ void NRF24L01::attach(Callback<void()> func)
 	}
 }
 
-void NRF24L01::enable_auto_acknoledgement(void)
+void NRF24L01::power_up(bool enable)
 {
-	spi_write_register(RegisterAddress::REG_EN_AA, 0x01);
+	uint8_t reg_config = 0;
+	// read current status of CONFIG register
+	reg_config = spi_read_register(RegisterAddress::REG_CONFIG);
+
+	if (enable) {
+		// power up
+		reg_config |= (1 << 1);
+	} else {
+		// power down
+		reg_config |= (0 << 1);
+	}
+
+	// write new value config register
+	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
 }
 
-void NRF24L01::disable_auto_acknoledgement(void)
+void NRF24L01::set_rx_tx_control(bool rx_tx)
 {
-	spi_write_register(RegisterAddress::REG_EN_AA, 0x00);
+	uint8_t reg_config = 0;
+	// read current status of CONFIG register
+	reg_config = spi_read_register(RegisterAddress::REG_CONFIG);
+	if (rx_tx) {
+		// Rx control
+		reg_config |= (1 << 0);
+	} else {
+		// Tx control
+		reg_config |= (0 << 0);
+	}
+	// write new value config register
+	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
+
+}
+
+void NRF24L01::set_power_up_and_rx_tx_control(bool rx_tx)
+{
+	uint8_t reg_config = 0;
+	// read current status of CONFIG register
+	reg_config = spi_read_register(RegisterAddress::REG_CONFIG);
+
+	if (rx_tx) {
+		// Rx control
+		reg_config = ((reg_config & 0xEC) | 0x03);
+	} else {
+		// Tx control
+		reg_config = ((reg_config & 0xEC) | 0x02);
+	}
+	// write new value config register
+	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
+}
+
+void NRF24L01::set_auto_acknowledgement(bool enable)
+{
+	if (enable) {
+		spi_write_register(RegisterAddress::REG_EN_AA, 0x3F);
+	} else {
+		spi_write_register(RegisterAddress::REG_EN_AA, 0x00);
+	}
+}
+
+void NRF24L01::set_auto_acknowledgement(uint8_t pipe, bool enable)
+{
+	uint8_t reg_en_aa = 0;
+
+	if (pipe <= MAX_DATA_PIPE) {
+		// read current value register
+		reg_en_aa = spi_read_register(RegisterAddress::REG_EN_AA);
+		// format new value
+		if (enable) {
+			reg_en_aa |= (1 << pipe);
+		} else {
+			reg_en_aa &= (0 << pipe);
+		}
+		//write new value register
+		spi_write_register(RegisterAddress::REG_EN_AA, reg_en_aa);
+	}
 }
 
 void NRF24L01::set_payload_size(uint8_t payload_size)
@@ -178,7 +256,7 @@ void NRF24L01::spi_write_register(RegisterAddress register_address, const char *
 	delete data;
 }
 
-void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *value)
+uint8_t NRF24L01::spi_read_register(RegisterAddress register_address)
 {
 	static char reg;
 	static char resp[2];
@@ -187,7 +265,7 @@ void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *valu
 
 	_spi->write(&reg, 1, resp, sizeof(resp));
 
-	*value = resp[1];
+	return resp[1];
 }
 
 void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *value, uint8_t length)
