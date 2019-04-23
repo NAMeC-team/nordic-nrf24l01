@@ -30,7 +30,7 @@ NRF24L01::NRF24L01(SPI *spi, PinName com_ce, PinName irq):
 
 void NRF24L01::initialize(uint8_t rf_channel)
 {
-	set_channel(channel);
+	set_channel(rf_channel);
 	// disabling auto acknowledgement
 	spi_write_register(RegisterAddress::REG_EN_AA, 0x00);
 	// setting the appropriate channel
