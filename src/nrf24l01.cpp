@@ -20,8 +20,11 @@
 
 namespace {
 #define _SPI_API_WITHOUT_CS_
-#define MAX_PAYLOAD_SIZE	32
-#define MAX_DATA_PIPE		 6
+#define MAX_PAYLOAD_SIZE		32 // in bytes
+#define MAX_DATA_PIPE			6
+#define MIN_RF_FREQUENCY    	2400 // in Hz
+#define MAX_RF_FREQUENCY		2525 // in Hz
+#define DEFAULT_RF_FREQUENCY	2402 // in Hz
 }
 
 NRF24L01::NRF24L01(SPI *spi, PinName com_ce, PinName irq):
@@ -31,10 +34,11 @@ NRF24L01::NRF24L01(SPI *spi, PinName com_ce, PinName irq):
 	// TODO: set spi format ?
 	_spi->format(8,0);
 	_com_ce = 0;
-	_channel = 0;
+	_rf_frequency = DEFAULT_RF_FREQUENCY;
 	_payload_size = MAX_PAYLOAD_SIZE;
 	_mode = OperationMode::TRANSCEIVER;
 	_data_rate = DataRate::_2MBPS;
+	_rf_output_power = RFoutputPower::_0dBm;
 }
 
 NRF24L01::NRF24L01(SPI *spi, PinName com_cs, PinName com_ce, PinName irq):
@@ -45,10 +49,11 @@ NRF24L01::NRF24L01(SPI *spi, PinName com_cs, PinName com_ce, PinName irq):
 	_spi->format(8,0);
 	_com_cs = 1;
 	_com_ce = 0;
-	_channel = 0;
+	_rf_frequency = DEFAULT_RF_FREQUENCY;
 	_payload_size = MAX_PAYLOAD_SIZE;
 	_mode = OperationMode::TRANSCEIVER;
 	_data_rate = DataRate::_2MBPS;
+	_rf_output_power = RFoutputPower::_0dBm;
 }
 
 void NRF24L01::initialize(OperationMode mode, DataRate data_rate,
@@ -206,7 +211,6 @@ void NRF24L01::set_channel(uint8_t channel)
 		channel = max_channel;
 	}
 	spi_write_register(RegisterAddress::REG_RF_CH, channel);
-	_channel = channel;
 }
 
 void NRF24L01::set_com_ce(uint8_t level)
@@ -242,7 +246,6 @@ void NRF24L01::set_data_rate(DataRate data_rate)
 
 NRF24L01::DataRate NRF24L01::data_rate(void)
 {
-	DataRate data_rate;
 	uint8_t reg_rf_setup;
 
 	reg_rf_setup = spi_read_register(RegisterAddress::REG_RF_SETUP);
@@ -307,12 +310,67 @@ void NRF24L01::attach_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, u
 
 void NRF24L01::send_packet(const void *tx_packet, uint8_t length)
 {
+	// manage payload length limit
+	if (length > MAX_PAYLOAD_SIZE) {
+		length = MAX_PAYLOAD_SIZE;
+	}
 	spi_write_payload((const char *)tx_packet, length);
 }
 
 void NRF24L01::read_packet(void *rx_packet, uint8_t length)
 {
+	// manage payload length limit
+	if (length > MAX_PAYLOAD_SIZE) {
+		length = MAX_PAYLOAD_SIZE;
+	}
 	spi_read_payload((char *)rx_packet, length);
+}
+
+void NRF24L01::set_rf_frequency(uint16_t rf_frequency)
+{
+	uint8_t channel = 0;
+
+	if ((rf_frequency < MIN_RF_FREQUENCY) || (rf_frequency > MAX_RF_FREQUENCY)) {
+		// out of the range: set default value
+		_rf_frequency  = MIN_RF_FREQUENCY + 2;
+	} else {
+		_rf_frequency = rf_frequency;
+	}
+
+	// Frequency = 2400 + RF_CH [MHz]
+	channel = _rf_frequency - MIN_RF_FREQUENCY;
+
+	set_channel(channel);
+
+}
+
+uint16_t NRF24L01::rf_frequency(void)
+{
+	// TODO: read register ?
+	// return current rf_frequency
+	return _rf_frequency;
+}
+
+void NRF24L01::set_rf_output_power(RFoutputPower rf_output_power)
+{
+	uint8_t reg_rf_setup = 0;
+
+	// availbale only in the Tx mode
+    if (_mode == OperationMode::TRANSCEIVER) {
+	    reg_rf_setup = spi_read_register(RegisterAddress::REG_RF_SETUP);
+		// clear concerned bits and format new value
+        reg_rf_setup = (reg_rf_setup & 0xF8);
+        reg_rf_setup = (reg_rf_setup | static_cast<uint8_t>(rf_output_power));
+        // set value register
+        spi_write_register(RegisterAddress::REG_RF_SETUP, reg_rf_setup);
+        _rf_output_power = rf_output_power;
+	 }
+}
+
+NRF24L01::RFoutputPower NRF24L01::rf_output_power(void)
+{
+	//TODO: read register ?
+	return _rf_output_power;
 }
 
 /***************************************************************************

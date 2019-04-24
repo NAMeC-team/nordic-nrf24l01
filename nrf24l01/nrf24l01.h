@@ -80,6 +80,13 @@ public:
 		RX_ADDR_P5			= 5
 	};
 
+	enum class RFoutputPower : uint8_t {
+		_18dBm				= 0x00,
+		_12dBm				= 0x01,
+		_6dBm				= 0x02,
+		_0dBm				= 0x03
+ 	};
+
 	NRF24L01(SPI *spi, PinName com_ce, PinName irq);
 
 	NRF24L01(SPI *spi, PinName com_cs, PinName com_ce, PinName irq);
@@ -116,15 +123,24 @@ public:
 
 	void read_packet(void* buffer, uint8_t length);
 
+	void set_rf_frequency(uint16_t rf_frequency);
+
+	uint16_t rf_frequency(void);
+
+	void set_rf_output_power(RFoutputPower rf_output_power);
+
+	RFoutputPower rf_output_power(void);
+
 private:
 	SPI *_spi;
 	DigitalOut _com_cs;
 	DigitalOut _com_ce;
 	InterruptIn _irq;
-	uint8_t _channel;
+	uint16_t _rf_frequency;
 	uint8_t _payload_size;
 	OperationMode _mode;
 	DataRate _data_rate;
+	RFoutputPower _rf_output_power;
 
 	void spi_select(void);
 
