@@ -82,15 +82,17 @@ public:
 
 	NRF24L01(SPI *spi, PinName com_ce, PinName irq);
 
+	NRF24L01(SPI *spi, PinName com_cs, PinName com_ce, PinName irq);
+
 	void initialize(OperationMode mode, DataRate data_rate, uint8_t rf_channel, uint8_t *hw_addr, uint8_t payload_size);
 
 	void attach(Callback<void()> func);
 
 	void power_up(bool enable);
 
-	void set_rx_tx_control(OperationMode mode);
+	void set_mode(OperationMode mode);
 
-	void set_power_up_and_rx_tx_control(OperationMode mode);
+	void set_power_up_and_mode(OperationMode mode);
 
 	void set_auto_acknowledgement(bool enable);
 
@@ -116,12 +118,17 @@ public:
 
 private:
 	SPI *_spi;
+	DigitalOut _com_cs;
 	DigitalOut _com_ce;
 	InterruptIn _irq;
 	uint8_t _channel;
 	uint8_t _payload_size;
 	OperationMode _mode;
 	DataRate _data_rate;
+
+	void spi_select(void);
+
+	void spi_deselect(void);
 
 	void spi_write_payload(const char *buffer, uint8_t length);
 
