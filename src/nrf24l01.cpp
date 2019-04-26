@@ -56,8 +56,7 @@ NRF24L01::NRF24L01(SPI *spi, PinName com_cs, PinName com_ce, PinName irq):
 	_rf_output_power = RFoutputPower::_0dBm;
 }
 
-void NRF24L01::initialize(OperationMode mode, DataRate data_rate,
-		uint8_t rf_channel, uint8_t *hw_addr, uint8_t payload_size)
+void NRF24L01::initialize(OperationMode mode, DataRate data_rate, uint16_t rf_frequency)
 {
 	// set mode to the member
 	_mode = mode;
@@ -65,18 +64,28 @@ void NRF24L01::initialize(OperationMode mode, DataRate data_rate,
 	//TODO: dev init in accord with the operation mode (Transceiver or Receiver)
 	switch(mode) {
 		case OperationMode::RECEIVER:
-			set_power_up_and_mode(mode);
-			// disable auto acknowledgement
-			set_auto_acknowledgement(false);
-			// set frequency channel
-			set_channel(rf_channel);
-			// set date rate
-			set_data_rate(data_rate);
+
 			break;
 		case OperationMode::TRANSCEIVER:
-			set_mode(mode);
 			break;
 	}
+	// disable auto acknowledgement
+	set_auto_acknowledgement(true);
+
+	// set frequency channel
+	set_rf_frequency(rf_frequency);
+
+	// set date rate
+	set_data_rate(data_rate);
+
+	// enable CRC
+	set_crc(true);
+
+	// set mode and power up
+	set_power_up_and_mode(mode);
+
+	wait_ms(2);
+
 }
 
 void NRF24L01::attach(Callback<void()> func)
@@ -90,6 +99,53 @@ void NRF24L01::attach(Callback<void()> func)
 	}
 }
 
+uint8_t NRF24L01::fifo_status(void)
+{
+	uint8_t reg_value;
+
+	reg_value = spi_read_register(RegisterAddress::REG_FIFO_STATUS);
+
+	return reg_value;
+}
+
+void NRF24L01::clear_interrupt_flags(void)
+{
+	spi_write_register(RegisterAddress::REG_STATUS, 0x70);
+}
+
+void NRF24L01::start_listening(void)
+{
+	flush_rx();
+	flush_tx();
+	set_com_ce(1);
+}
+
+void NRF24L01::stop_listening(void)
+{
+	set_com_ce(0);
+	flush_tx();
+	flush_rx();
+}
+
+void NRF24L01::set_tx_address(uint8_t *tx_addr)
+{
+	spi_write_register(RegisterAddress::REG_TX_ADDR, (const char *)tx_addr, 5);
+}
+
+void NRF24L01::set_crc(bool enable)
+{
+	int8_t reg_config = 0;
+	// read current status of CONFIG register
+	reg_config = spi_read_register(RegisterAddress::REG_CONFIG);
+	if (enable) {
+		reg_config |= (1 << 3);
+	} else {
+		reg_config &= (0 << 3);
+	}
+	// write new value
+	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
+}
+
 void NRF24L01::power_up(bool enable)
 {
 	uint8_t reg_config = 0;
@@ -101,7 +157,7 @@ void NRF24L01::power_up(bool enable)
 		reg_config |= (1 << 1);
 	} else {
 		// power down
-		reg_config |= (0 << 1);
+		reg_config &= (0 << 1);
 	}
 
 	// write new value config register
@@ -118,7 +174,7 @@ void NRF24L01::set_mode(OperationMode mode)
 		reg_config |= (1 << 0);
 	} else {
 		// Tx control
-		reg_config |= (0 << 0);
+		reg_config &= (0 << 0);
 	}
 	// write new value config register
 	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
@@ -269,52 +325,164 @@ void NRF24L01::attach_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, u
 			// set rx addr to pipe 0
 			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
 			// enable rx addr
-			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x01);
+			if (_mode == OperationMode::RECEIVER) {
+				spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x01);
+			}
 			break;
 		case RxAddressPipe::RX_ADDR_P1:
-			// set rx addr to pipe 0
-			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// set rx addr to pipe 1
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P1, (const char *)hw_addr, 5);
 			// enable rx addr
-			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x02);
+			if (_mode == OperationMode::RECEIVER) {
+				spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x02);
+			}
 			break;
 		case RxAddressPipe::RX_ADDR_P2:
-			// set rx addr to pipe 0
-			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// set rx addr to pipe 2
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P2, (const char *)hw_addr, 5);
 			// enable rx addr
-			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x04);
+			if (_mode == OperationMode::RECEIVER) {
+				spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x04);
+			}
 			break;
 		case RxAddressPipe::RX_ADDR_P3:
-			// set rx addr to pipe 0
-			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// set rx addr to pipe 3
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P3, (const char *)hw_addr, 5);
 			// enable rx addr
-			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x08);
+			if (_mode == OperationMode::RECEIVER) {
+				spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x08);
+			}
 			break;
 		case RxAddressPipe::RX_ADDR_P4:
-			// set rx addr to pipe 0
-			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// set rx addr to pipe 4
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P4, (const char *)hw_addr, 5);
 			// enable rx addr
-			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x10);
+			if (_mode == OperationMode::RECEIVER) {
+				spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x10);
+			}
 			break;
 		case RxAddressPipe::RX_ADDR_P5:
-			// set rx addr to pipe 0
-			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// set rx addr to pipe 5
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P5, (const char *)hw_addr, 5);
 			// enable rx addr
-			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x20);
+			if (_mode == OperationMode::RECEIVER) {
+				spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x20);
+			}
 			break;
 
 	}
+
 	// set payload
 	set_payload_size(rx_address_pipe , payload_size);
 
 }
 
+void NRF24L01::attach_transmitting_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, uint8_t payload_size)
+{
+	switch(rx_address_pipe) {
+		case RxAddressPipe::RX_ADDR_P0:
+			// set rx addr to pipe 0
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			break;
+		case RxAddressPipe::RX_ADDR_P1:
+			// set rx addr to pipe 1
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P1, (const char *)hw_addr, 5);
+			break;
+		case RxAddressPipe::RX_ADDR_P2:
+			// set rx addr to pipe 2
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P2, (const char *)hw_addr, 5);
+			break;
+		case RxAddressPipe::RX_ADDR_P3:
+			// set rx addr to pipe 3
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P3, (const char *)hw_addr, 5);
+			break;
+		case RxAddressPipe::RX_ADDR_P4:
+			// set rx addr to pipe 4
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P4, (const char *)hw_addr, 5);
+			break;
+		case RxAddressPipe::RX_ADDR_P5:
+			// set rx addr to pipe 5
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P5, (const char *)hw_addr, 5);
+			break;
+
+	}
+
+	set_tx_address(hw_addr);
+
+	// set payload
+	set_payload_size(rx_address_pipe , payload_size);
+}
+
+void NRF24L01::attach_receive_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, uint8_t payload_size)
+{
+	// set payload
+	set_payload_size(rx_address_pipe , payload_size);
+
+	switch(rx_address_pipe) {
+		case RxAddressPipe::RX_ADDR_P0:
+			// set rx addr to pipe 0
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x01);
+			break;
+		case RxAddressPipe::RX_ADDR_P1:
+			// set rx addr to pipe 1
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P1, (const char *)hw_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x02);
+			break;
+		case RxAddressPipe::RX_ADDR_P2:
+			// set rx addr to pipe 2
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P2, (const char *)hw_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x04);
+			break;
+		case RxAddressPipe::RX_ADDR_P3:
+			// set rx addr to pipe 3
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P3, (const char *)hw_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x08);
+			break;
+		case RxAddressPipe::RX_ADDR_P4:
+			// set rx addr to pipe 4
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P4, (const char *)hw_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x10);
+			break;
+		case RxAddressPipe::RX_ADDR_P5:
+			// set rx addr to pipe 5
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P5, (const char *)hw_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x20);
+			break;
+
+	}
+
+
+
+}
+
+
 void NRF24L01::send_packet(const void *tx_packet, uint8_t length)
 {
+	set_com_ce(0);
+
 	// manage payload length limit
 	if (length > MAX_PAYLOAD_SIZE) {
 		length = MAX_PAYLOAD_SIZE;
 	}
 	spi_write_payload((const char *)tx_packet, length);
+
+	start_transfer();
+}
+
+void NRF24L01::start_transfer(void)
+{
+	//in Tx mode only
+	set_com_ce(1);
+	wait_us(15);
+	set_com_ce(0);
+
 }
 
 void NRF24L01::read_packet(void *rx_packet, uint8_t length)
@@ -373,6 +541,29 @@ NRF24L01::RFoutputPower NRF24L01::rf_output_power(void)
 	return _rf_output_power;
 }
 
+void NRF24L01::flush_rx(void)
+{
+	spi_single_write(static_cast<uint8_t>(RegisterAddress::OP_FLUSH_RX));
+}
+
+void NRF24L01::flush_tx(void)
+{
+	spi_single_write(static_cast<uint8_t>(RegisterAddress::OP_FLUSH_TX));
+}
+
+uint8_t NRF24L01::register_status(RegisterAddress register_address)
+{
+	uint8_t register_value = 0xff;
+	// if instruction mnemonics
+	if (static_cast<uint8_t>(register_address) > 0x1D) {
+		register_value = spi_single_write(static_cast<uint8_t>(register_address));
+	} else {
+		register_value = spi_read_register(register_address);
+	}
+
+	return register_value;
+}
+
 /***************************************************************************
  * transport layer
  ***************************************************************************/
@@ -409,9 +600,10 @@ void NRF24L01::spi_write_payload(const char *buffer, uint8_t length)
 		data[i] = *buffer;
 		buffer++;
 	}
-
+	spi_select();
 	//TODO: ignore response?
 	_spi->write(data, length, resp, sizeof(resp));
+	spi_deselect();
 
 	delete data;
 #endif
@@ -430,7 +622,9 @@ void NRF24L01::spi_read_payload(char* buffer, uint8_t length)
 #else
 	static char reg;
 	reg = static_cast<char>(RegisterAddress::OP_RX);
+	spi_select();
 	_spi->write(&reg, 1, (char *)buffer, length);
+	spi_deselect();
 #endif
 }
 
@@ -448,8 +642,10 @@ void NRF24L01::spi_write_register(RegisterAddress register_address, uint8_t valu
 	// formatting data
 	data[0] = (static_cast<char>(register_address) | static_cast<char>(RegisterAddress::OP_WRITE));
 	data[1] = value;
+	spi_select();
 	//TODO: ignore response?
 	_spi->write(data, sizeof(data), resp, sizeof(resp));
+	spi_deselect();
 #endif
 }
 
@@ -476,9 +672,10 @@ void NRF24L01::spi_write_register(RegisterAddress register_address, const char *
 		data[i] = *value;
 		value++;
 	}
-
+	spi_select();
 	//TODO: ignore response?
 	_spi->write(data, length, resp, sizeof(resp));
+	spi_deselect();
 
 	delete data;
 #endif
@@ -488,7 +685,7 @@ uint8_t NRF24L01::spi_read_register(RegisterAddress register_address)
 {
 	static char reg;
 
-	reg = (static_cast<char>(register_address) | static_cast<char>(RegisterAddress::OP_READ));
+	reg = (static_cast<char>(RegisterAddress::OP_READ) | static_cast<char>(register_address));
 
 #ifdef _SPI_API_WITHOUT_CS_
 	static uint8_t resp = 0;
@@ -499,7 +696,9 @@ uint8_t NRF24L01::spi_read_register(RegisterAddress register_address)
 	return resp;
 #else
 	static char resp[2];
+	spi_select();
 	_spi->write(&reg, 1, resp, sizeof(resp));
+	spi_deselect();
 	return (uint8_t)resp[1];
 #endif
 }
@@ -509,7 +708,7 @@ void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *valu
 	static char reg;
 
 	// format register value
-	reg = (static_cast<char>(register_address) | static_cast<char>(RegisterAddress::OP_READ));
+	reg = (static_cast<char>(RegisterAddress::OP_READ) | (static_cast<char>(register_address) & 0x1F));
 
 #ifdef _SPI_API_WITHOUT_CS_
 	spi_select();
@@ -519,9 +718,21 @@ void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *valu
 	}
 	spi_deselect();
 #else
+	spi_select();
 	// spi write sequence
 	_spi->write(&reg, 1, (char *)value, length);
+	spi_deselect();
 #endif
 
+}
+
+uint8_t NRF24L01::spi_single_write(uint8_t value)
+{
+	uint8_t resp = 0xff;
+	spi_select();
+	resp = _spi->write(value);
+	spi_deselect();
+
+	return resp;
 }
 

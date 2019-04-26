@@ -28,6 +28,8 @@ public:
 		OP_RX               = 0x61,
 		OP_TX               = 0xa0,
 		OP_NOP              = 0xff,
+		OP_FLUSH_TX			= 0xE1,
+		OP_FLUSH_RX			= 0xE2,
 		// Registers
 		REG_CONFIG          = 0x00,
 		REG_EN_AA           = 0x01,
@@ -91,9 +93,21 @@ public:
 
 	NRF24L01(SPI *spi, PinName com_cs, PinName com_ce, PinName irq);
 
-	void initialize(OperationMode mode, DataRate data_rate, uint8_t rf_channel, uint8_t *hw_addr, uint8_t payload_size);
+	void initialize(OperationMode mode, DataRate data_rate, uint16_t rf_frequency);
 
 	void attach(Callback<void()> func);
+
+	uint8_t fifo_status(void);
+
+	void clear_interrupt_flags(void);
+
+	void start_listening(void);
+
+	void stop_listening(void);
+
+	void set_tx_address(uint8_t *tx_addr);
+
+	void set_crc(bool enable);
 
 	void power_up(bool enable);
 
@@ -119,7 +133,13 @@ public:
 
 	void attach_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, uint8_t payload_size);
 
+	void attach_receive_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, uint8_t payload_size);
+
+	void attach_transmitting_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, uint8_t payload_size);
+
 	void send_packet(const void *buffer, uint8_t length);
+
+	void start_transfer(void);
 
 	void read_packet(void* buffer, uint8_t length);
 
@@ -130,6 +150,12 @@ public:
 	void set_rf_output_power(RFoutputPower rf_output_power);
 
 	RFoutputPower rf_output_power(void);
+
+	void flush_rx(void);
+
+	void flush_tx(void);
+
+	uint8_t register_status(RegisterAddress register_address);
 
 private:
 	SPI *_spi;
@@ -157,6 +183,8 @@ private:
 	uint8_t spi_read_register(RegisterAddress register_address);
 
 	void spi_read_register(RegisterAddress register_address, uint8_t *value, uint8_t length);
+
+	uint8_t spi_single_write(uint8_t value);
 
 };
 
