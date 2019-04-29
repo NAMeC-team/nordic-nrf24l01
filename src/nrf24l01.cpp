@@ -62,15 +62,8 @@ void NRF24L01::initialize(OperationMode mode, DataRate data_rate, uint16_t rf_fr
 	_mode = mode;
 
 	//TODO: dev init in accord with the operation mode (Transceiver or Receiver)
-	switch(mode) {
-		case OperationMode::RECEIVER:
-
-			break;
-		case OperationMode::TRANSCEIVER:
-			break;
-	}
 	// disable auto acknowledgement
-	set_auto_acknowledgement(true);
+	set_auto_acknowledgement(false);
 
 	// set frequency channel
 	set_rf_frequency(rf_frequency);
@@ -79,7 +72,7 @@ void NRF24L01::initialize(OperationMode mode, DataRate data_rate, uint16_t rf_fr
 	set_data_rate(data_rate);
 
 	// enable CRC
-	set_crc(true);
+	set_crc(CRCwidth::NONE);
 
 	// set mode and power up
 	set_power_up_and_mode(mode);
@@ -132,15 +125,29 @@ void NRF24L01::set_tx_address(uint8_t *tx_addr)
 	spi_write_register(RegisterAddress::REG_TX_ADDR, (const char *)tx_addr, 5);
 }
 
-void NRF24L01::set_crc(bool enable)
+void NRF24L01::set_crc(CRCwidth crc_width)
 {
 	int8_t reg_config = 0;
 	// read current status of CONFIG register
 	reg_config = spi_read_register(RegisterAddress::REG_CONFIG);
-	if (enable) {
-		reg_config |= (1 << 3);
-	} else {
-		reg_config &= (0 << 3);
+
+	switch (crc_width) {
+		case CRCwidth::NONE:
+			// disable CRC
+			reg_config &= (0 << 3);
+			break;
+		case CRCwidth::_8bits:
+			// set 0 to CRC width bits register
+			reg_config &= (0 << 2);
+			// enable CRC
+			reg_config |= (1 << 3);
+			break;
+		case CRCwidth::_16bits:
+			// set 1 to CRC width bits register
+			reg_config |= (1 << 2);
+			// enable CRC
+			reg_config |= (1 << 3);
+			break;
 	}
 	// write new value
 	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
@@ -455,13 +462,8 @@ void NRF24L01::attach_receive_payload(RxAddressPipe rx_address_pipe, uint8_t *hw
 			// enable rx addr
 			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x20);
 			break;
-
 	}
-
-
-
 }
-
 
 void NRF24L01::send_packet(const void *tx_packet, uint8_t length)
 {
@@ -543,12 +545,12 @@ NRF24L01::RFoutputPower NRF24L01::rf_output_power(void)
 
 void NRF24L01::flush_rx(void)
 {
-	spi_single_write(static_cast<uint8_t>(RegisterAddress::OP_FLUSH_RX));
+	spi_single_write(static_cast<uint8_t>(RegisterOperation::OP_FLUSH_RX));
 }
 
 void NRF24L01::flush_tx(void)
 {
-	spi_single_write(static_cast<uint8_t>(RegisterAddress::OP_FLUSH_TX));
+	spi_single_write(static_cast<uint8_t>(RegisterOperation::OP_FLUSH_TX));
 }
 
 uint8_t NRF24L01::register_status(RegisterAddress register_address)
@@ -581,7 +583,7 @@ void NRF24L01::spi_write_payload(const char *buffer, uint8_t length)
 {
 #ifdef _SPI_API_WITHOUT_CS_
 	spi_select();
-	_spi->write(static_cast<uint8_t>(RegisterAddress::OP_TX));
+	_spi->write(static_cast<uint8_t>(RegisterOperation::OP_TX));
 	while (length--) {
 		_spi->write(*buffer++);
 	}
@@ -614,9 +616,9 @@ void NRF24L01::spi_read_payload(char* buffer, uint8_t length)
 
 #ifdef _SPI_API_WITHOUT_CS_
 	spi_select();
-	_spi->write(static_cast<uint8_t>(RegisterAddress::OP_RX));
+	_spi->write(static_cast<uint8_t>(RegisterOperation::OP_RX));
 	while (length--) {
-		*buffer++ = _spi->write(0xff);
+		*buffer++ = _spi->write(static_cast<uint8_t>(RegisterOperation::OP_NOP));
 	}
 	spi_deselect();
 #else
@@ -632,7 +634,7 @@ void NRF24L01::spi_write_register(RegisterAddress register_address, uint8_t valu
 {
 #ifdef _SPI_API_WITHOUT_CS_
 	spi_select();
-	_spi->write((static_cast<uint8_t>(register_address) | static_cast<uint8_t>(RegisterAddress::OP_WRITE)));
+	_spi->write((static_cast<uint8_t>(register_address) | static_cast<uint8_t>(RegisterOperation::OP_WRITE)));
 	_spi->write(value);
 	spi_deselect();
 #else
@@ -653,7 +655,7 @@ void NRF24L01::spi_write_register(RegisterAddress register_address, const char *
 {
 #ifdef _SPI_API_WITHOUT_CS_
 	spi_select();
-	_spi->write((static_cast<uint8_t>(register_address) | static_cast<uint8_t>(RegisterAddress::OP_WRITE)));
+	_spi->write((static_cast<uint8_t>(register_address) | static_cast<uint8_t>(RegisterOperation::OP_WRITE)));
 	while (length--) {
 		//TODO: ignore response?
 		_spi->write(*value++);
@@ -685,13 +687,13 @@ uint8_t NRF24L01::spi_read_register(RegisterAddress register_address)
 {
 	static char reg;
 
-	reg = (static_cast<char>(RegisterAddress::OP_READ) | static_cast<char>(register_address));
+	reg = (static_cast<char>(RegisterOperation::OP_READ) | static_cast<char>(register_address));
 
 #ifdef _SPI_API_WITHOUT_CS_
 	static uint8_t resp = 0;
 	spi_select();
 	_spi->write(reg);
-	resp = _spi->write(0xff);
+	resp = _spi->write(static_cast<uint8_t>(RegisterOperation::OP_NOP));
 	spi_deselect();
 	return resp;
 #else
@@ -708,13 +710,13 @@ void NRF24L01::spi_read_register(RegisterAddress register_address, uint8_t *valu
 	static char reg;
 
 	// format register value
-	reg = (static_cast<char>(RegisterAddress::OP_READ) | (static_cast<char>(register_address) & 0x1F));
+	reg = (static_cast<char>(RegisterOperation::OP_READ) | (static_cast<char>(register_address) & 0x1F));
 
 #ifdef _SPI_API_WITHOUT_CS_
 	spi_select();
 	_spi->write(reg);
 	while (length--) {
-		*value++ = _spi->write(0xff);
+		*value++ = _spi->write(static_cast<uint8_t>(RegisterOperation::OP_NOP));
 	}
 	spi_deselect();
 #else

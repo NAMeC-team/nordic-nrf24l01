@@ -21,7 +21,7 @@ class NRF24L01
 {
 public:
 
-	enum class RegisterAddress : uint8_t {
+	enum class RegisterOperation : uint8_t {
 		// Operations
 		OP_READ             = 0x00,
 		OP_WRITE            = 0x20,
@@ -29,7 +29,10 @@ public:
 		OP_TX               = 0xa0,
 		OP_NOP              = 0xff,
 		OP_FLUSH_TX			= 0xE1,
-		OP_FLUSH_RX			= 0xE2,
+		OP_FLUSH_RX			= 0xE2
+	};
+
+	enum class RegisterAddress : uint8_t {
 		// Registers
 		REG_CONFIG          = 0x00,
 		REG_EN_AA           = 0x01,
@@ -64,7 +67,9 @@ public:
 
 	enum class OperationMode : uint8_t {
 		TRANSCEIVER			= 0x00,
-		RECEIVER			= 0x01
+		RECEIVER			= 0x01,
+		STANDBY				= 0x02,
+		POWER_DOWN			= 0x03
 	};
 
 	enum class DataRate : uint8_t {
@@ -89,6 +94,12 @@ public:
 		_0dBm				= 0x03
  	};
 
+	enum class CRCwidth : uint8_t {
+		NONE				= 0,
+		_8bits				= 8,
+		_16bits				= 16
+	};
+
 	NRF24L01(SPI *spi, PinName com_ce, PinName irq);
 
 	NRF24L01(SPI *spi, PinName com_cs, PinName com_ce, PinName irq);
@@ -107,7 +118,7 @@ public:
 
 	void set_tx_address(uint8_t *tx_addr);
 
-	void set_crc(bool enable);
+	void set_crc(CRCwidth crc_width);
 
 	void power_up(bool enable);
 
