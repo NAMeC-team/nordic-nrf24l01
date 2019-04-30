@@ -25,18 +25,18 @@ namespace {
 #define MIN_RF_FREQUENCY    	2400 // in Hz
 #define MAX_RF_FREQUENCY		2525 // in Hz
 #define DEFAULT_RF_FREQUENCY	2402 // in Hz
+#define HARDWARE_DELAY			4	 // in µs
 }
 
 NRF24L01::NRF24L01(SPI *spi, PinName com_ce, PinName irq):
 		_com_cs(NC), _com_ce(com_ce), _irq(irq)
 {
 	_spi = spi;
-	// TODO: set spi format ?
 	_spi->format(8,0);
 	_com_ce = 0;
 	_rf_frequency = DEFAULT_RF_FREQUENCY;
 	_payload_size = MAX_PAYLOAD_SIZE;
-	_mode = OperationMode::TRANSCEIVER;
+	_mode = OperationMode::POWER_DOWN;
 	_data_rate = DataRate::_2MBPS;
 	_rf_output_power = RFoutputPower::_0dBm;
 }
@@ -45,7 +45,6 @@ NRF24L01::NRF24L01(SPI *spi, PinName com_cs, PinName com_ce, PinName irq):
 		_com_cs(com_cs), _com_ce(com_ce), _irq(irq)
 {
 	_spi = spi;
-	// TODO: set spi format ?
 	_spi->format(8,0);
 	_com_cs = 1;
 	_com_ce = 0;
@@ -61,7 +60,6 @@ void NRF24L01::initialize(OperationMode mode, DataRate data_rate, uint16_t rf_fr
 	// set mode to the member
 	_mode = mode;
 
-	//TODO: dev init in accord with the operation mode (Transceiver or Receiver)
 	// disable auto acknowledgement
 	set_auto_acknowledgement(false);
 
@@ -77,8 +75,6 @@ void NRF24L01::initialize(OperationMode mode, DataRate data_rate, uint16_t rf_fr
 	// set mode and power up
 	set_power_up_and_mode(mode);
 
-	wait_ms(2);
-
 }
 
 void NRF24L01::attach(Callback<void()> func)
@@ -92,18 +88,43 @@ void NRF24L01::attach(Callback<void()> func)
 	}
 }
 
-uint8_t NRF24L01::fifo_status(void)
-{
-	uint8_t reg_value;
-
-	reg_value = spi_read_register(RegisterAddress::REG_FIFO_STATUS);
-
-	return reg_value;
-}
-
 void NRF24L01::clear_interrupt_flags(void)
 {
-	spi_write_register(RegisterAddress::REG_STATUS, 0x70);
+	spi_write_register(RegisterAddress::REG_STATUS, 0x7E);
+}
+
+void NRF24L01::set_interrupt(InterruptMode interrupt_mode)
+{
+	uint8_t register_value = 0xff;
+
+	register_value = spi_read_register(RegisterAddress::REG_CONFIG);
+
+	// disable all interrupts, force to 1 to disable
+	register_value |= 0x70;
+
+	switch (interrupt_mode) {
+		case InterruptMode::NONE:
+			// already configured
+			break;
+		case InterruptMode::RX_ONLY:
+			register_value &= 0x3F;
+			break;
+		case InterruptMode::TX_ONLY:
+			register_value &= 0x5F;
+			break;
+		case InterruptMode::RX_TX:
+			register_value &= 0x1F;
+			break;
+		case InterruptMode::RETRANSMIT:
+			register_value &= 0x6F;
+			break;
+		case InterruptMode::TX_RETRANSMIT:
+			register_value &= 0x4F;
+			break;
+	}
+
+	spi_write_register(RegisterAddress::REG_CONFIG, register_value);
+
 }
 
 void NRF24L01::start_listening(void)
@@ -134,11 +155,11 @@ void NRF24L01::set_crc(CRCwidth crc_width)
 	switch (crc_width) {
 		case CRCwidth::NONE:
 			// disable CRC
-			reg_config &= (0 << 3);
+			reg_config &= 0xF7;
 			break;
 		case CRCwidth::_8bits:
 			// set 0 to CRC width bits register
-			reg_config &= (0 << 2);
+			reg_config = (reg_config & 0xFB);
 			// enable CRC
 			reg_config |= (1 << 3);
 			break;
@@ -153,22 +174,28 @@ void NRF24L01::set_crc(CRCwidth crc_width)
 	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
 }
 
-void NRF24L01::power_up(bool enable)
+void NRF24L01::power_up(void)
 {
 	uint8_t reg_config = 0;
 	// read current status of CONFIG register
 	reg_config = spi_read_register(RegisterAddress::REG_CONFIG);
-
-	if (enable) {
-		// power up
-		reg_config |= (1 << 1);
-	} else {
-		// power down
-		reg_config &= (0 << 1);
-	}
-
+	// power up
+	reg_config |= (1 << 1);
 	// write new value config register
 	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
+}
+
+void NRF24L01::power_down(void)
+{
+	uint8_t reg_config = 0;
+	// read current status of CONFIG register
+	reg_config = spi_read_register(RegisterAddress::REG_CONFIG);
+	// power down
+	reg_config &= 0xFD;
+	// write new value config register
+	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
+	// set mode
+	_mode = OperationMode::POWER_DOWN;
 }
 
 void NRF24L01::set_mode(OperationMode mode)
@@ -181,11 +208,16 @@ void NRF24L01::set_mode(OperationMode mode)
 		reg_config |= (1 << 0);
 	} else {
 		// Tx control
-		reg_config &= (0 << 0);
+		reg_config &= 0xF7;
 	}
 	// write new value config register
 	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
 
+}
+
+NRF24L01::OperationMode NRF24L01::mode(void)
+{
+	return _mode;
 }
 
 void NRF24L01::set_power_up_and_mode(OperationMode mode)
@@ -225,7 +257,7 @@ void NRF24L01::set_auto_acknowledgement(uint8_t pipe, bool enable)
 		if (enable) {
 			reg_en_aa |= (1 << pipe);
 		} else {
-			reg_en_aa &= (0 << pipe);
+			reg_en_aa &= ~(1 << pipe);
 		}
 		//write new value register
 		spi_write_register(RegisterAddress::REG_EN_AA, reg_en_aa);
@@ -279,6 +311,10 @@ void NRF24L01::set_channel(uint8_t channel)
 void NRF24L01::set_com_ce(uint8_t level)
 {
 	_com_ce = level;
+
+	if (level) {
+		wait_us(HARDWARE_DELAY);
+	}
 }
 
 void NRF24L01::set_data_rate(DataRate data_rate)
@@ -322,66 +358,6 @@ NRF24L01::DataRate NRF24L01::data_rate(void)
 	}
 
 	return _data_rate;
-}
-
-void NRF24L01::attach_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, uint8_t payload_size)
-{
-
-	switch(rx_address_pipe) {
-		case RxAddressPipe::RX_ADDR_P0:
-			// set rx addr to pipe 0
-			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_addr, 5);
-			// enable rx addr
-			if (_mode == OperationMode::RECEIVER) {
-				spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x01);
-			}
-			break;
-		case RxAddressPipe::RX_ADDR_P1:
-			// set rx addr to pipe 1
-			spi_write_register(RegisterAddress::REG_RX_ADDR_P1, (const char *)hw_addr, 5);
-			// enable rx addr
-			if (_mode == OperationMode::RECEIVER) {
-				spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x02);
-			}
-			break;
-		case RxAddressPipe::RX_ADDR_P2:
-			// set rx addr to pipe 2
-			spi_write_register(RegisterAddress::REG_RX_ADDR_P2, (const char *)hw_addr, 5);
-			// enable rx addr
-			if (_mode == OperationMode::RECEIVER) {
-				spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x04);
-			}
-			break;
-		case RxAddressPipe::RX_ADDR_P3:
-			// set rx addr to pipe 3
-			spi_write_register(RegisterAddress::REG_RX_ADDR_P3, (const char *)hw_addr, 5);
-			// enable rx addr
-			if (_mode == OperationMode::RECEIVER) {
-				spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x08);
-			}
-			break;
-		case RxAddressPipe::RX_ADDR_P4:
-			// set rx addr to pipe 4
-			spi_write_register(RegisterAddress::REG_RX_ADDR_P4, (const char *)hw_addr, 5);
-			// enable rx addr
-			if (_mode == OperationMode::RECEIVER) {
-				spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x10);
-			}
-			break;
-		case RxAddressPipe::RX_ADDR_P5:
-			// set rx addr to pipe 5
-			spi_write_register(RegisterAddress::REG_RX_ADDR_P5, (const char *)hw_addr, 5);
-			// enable rx addr
-			if (_mode == OperationMode::RECEIVER) {
-				spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x20);
-			}
-			break;
-
-	}
-
-	// set payload
-	set_payload_size(rx_address_pipe , payload_size);
-
 }
 
 void NRF24L01::attach_transmitting_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, uint8_t payload_size)
@@ -482,7 +458,7 @@ void NRF24L01::start_transfer(void)
 {
 	//in Tx mode only
 	set_com_ce(1);
-	wait_us(15);
+	wait_us(20);
 	set_com_ce(0);
 
 }
@@ -553,17 +529,48 @@ void NRF24L01::flush_tx(void)
 	spi_single_write(static_cast<uint8_t>(RegisterOperation::OP_FLUSH_TX));
 }
 
-uint8_t NRF24L01::register_status(RegisterAddress register_address)
+void NRF24L01::tx_address(uint8_t *tx_addr)
 {
-	uint8_t register_value = 0xff;
-	// if instruction mnemonics
-	if (static_cast<uint8_t>(register_address) > 0x1D) {
-		register_value = spi_single_write(static_cast<uint8_t>(register_address));
-	} else {
-		register_value = spi_read_register(register_address);
-	}
+	spi_read_register(RegisterAddress::REG_TX_ADDR, tx_addr, 5);
+}
 
-	return register_value;
+void NRF24L01::rx_address(RxAddressPipe rx_address_pipe, uint8_t *rx_addr)
+{
+	switch(rx_address_pipe) {
+			case RxAddressPipe::RX_ADDR_P0:
+				spi_read_register(RegisterAddress::REG_RX_ADDR_P0, rx_addr, 5);
+				break;
+			case RxAddressPipe::RX_ADDR_P1:
+				spi_read_register(RegisterAddress::REG_RX_ADDR_P1, rx_addr, 5);
+				break;
+			case RxAddressPipe::RX_ADDR_P2:
+				spi_read_register(RegisterAddress::REG_RX_ADDR_P2, rx_addr, 5);
+				break;
+			case RxAddressPipe::RX_ADDR_P3:
+				spi_read_register(RegisterAddress::REG_RX_ADDR_P3, rx_addr, 5);
+				break;
+			case RxAddressPipe::RX_ADDR_P4:
+				spi_read_register(RegisterAddress::REG_RX_ADDR_P4, rx_addr, 5);
+				break;
+			case RxAddressPipe::RX_ADDR_P5:
+				spi_read_register(RegisterAddress::REG_RX_ADDR_P5, rx_addr, 5);
+				break;
+		}
+}
+
+uint8_t NRF24L01::status_register(void)
+{
+	return spi_single_write(static_cast<uint8_t>(RegisterOperation::OP_NOP));
+}
+
+uint8_t NRF24L01::fifo_status_register(void)
+{
+	return spi_read_register(RegisterAddress::REG_FIFO_STATUS);
+}
+
+uint8_t NRF24L01::config_status_register(void)
+{
+	return spi_read_register(RegisterAddress::REG_CONFIG);
 }
 
 /***************************************************************************
@@ -738,3 +745,9 @@ uint8_t NRF24L01::spi_single_write(uint8_t value)
 	return resp;
 }
 
+//void NRF24L01::spi_multiple_write(uint8_t register_value, uint8_t *resp, uint8_t length)
+//{
+//	spi_select();
+//	_spi->write((const char *)register_value, 1, (char *)resp, length);
+//	spi_deselect();
+//}

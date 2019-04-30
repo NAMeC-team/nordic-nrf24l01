@@ -68,14 +68,13 @@ public:
 	enum class OperationMode : uint8_t {
 		TRANSCEIVER			= 0x00,
 		RECEIVER			= 0x01,
-		STANDBY				= 0x02,
-		POWER_DOWN			= 0x03
+		POWER_DOWN			= 0x02
 	};
 
-	enum class DataRate : uint8_t {
-		_250KBPS			= 0,
-		_1MBPS				= 1,
-		_2MBPS				= 2
+	enum class DataRate : uint16_t {
+		_250KBPS			= 250,
+		_1MBPS				= 1000,
+		_2MBPS				= 2000
 	};
 
 	enum class RxAddressPipe : uint8_t {
@@ -88,16 +87,25 @@ public:
 	};
 
 	enum class RFoutputPower : uint8_t {
-		_18dBm				= 0x00,
-		_12dBm				= 0x01,
-		_6dBm				= 0x02,
-		_0dBm				= 0x03
+		_18dBm				= 18,
+		_12dBm				= 12,
+		_6dBm				= 6,
+		_0dBm				= 0
  	};
 
 	enum class CRCwidth : uint8_t {
 		NONE				= 0,
 		_8bits				= 8,
 		_16bits				= 16
+	};
+
+	enum class InterruptMode : uint8_t {
+		NONE				= 0,
+		RX_ONLY				= 1,
+		TX_ONLY				= 2,
+		RX_TX				= 3,
+		RETRANSMIT			= 4,
+		TX_RETRANSMIT		= 5
 	};
 
 	NRF24L01(SPI *spi, PinName com_ce, PinName irq);
@@ -108,9 +116,9 @@ public:
 
 	void attach(Callback<void()> func);
 
-	uint8_t fifo_status(void);
-
 	void clear_interrupt_flags(void);
+
+	void set_interrupt(InterruptMode interrupt_mode);
 
 	void start_listening(void);
 
@@ -120,9 +128,13 @@ public:
 
 	void set_crc(CRCwidth crc_width);
 
-	void power_up(bool enable);
+	void power_up(void);
+
+	void power_down(void);
 
 	void set_mode(OperationMode mode);
+
+	OperationMode mode(void);
 
 	void set_power_up_and_mode(OperationMode mode);
 
@@ -141,8 +153,6 @@ public:
 	void set_data_rate(DataRate data_rate);
 
 	DataRate data_rate(void);
-
-	void attach_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, uint8_t payload_size);
 
 	void attach_receive_payload(RxAddressPipe rx_address_pipe, uint8_t *hw_addr, uint8_t payload_size);
 
@@ -166,7 +176,15 @@ public:
 
 	void flush_tx(void);
 
-	uint8_t register_status(RegisterAddress register_address);
+	void tx_address(uint8_t *tx_addr);
+
+	void rx_address(RxAddressPipe rx_address_pipe, uint8_t *rx_addr);
+
+	uint8_t status_register(void);
+
+	uint8_t fifo_status_register(void);
+
+	uint8_t config_status_register(void);
 
 private:
 	SPI *_spi;
