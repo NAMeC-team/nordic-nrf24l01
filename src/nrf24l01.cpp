@@ -441,6 +441,48 @@ void NRF24L01::attach_receive_payload(RxAddressPipe rx_address_pipe, uint8_t *hw
 	}
 }
 
+void NRF24L01::attach_receive_address_to_pipe(RxAddressPipe rx_address_pipe, uint8_t *hw_rx_addr)
+{
+	switch(rx_address_pipe) {
+		case RxAddressPipe::RX_ADDR_P0:
+			// set rx addr to pipe 0
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P0, (const char *)hw_rx_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x01);
+			break;
+		case RxAddressPipe::RX_ADDR_P1:
+			// set rx addr to pipe 1
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P1, (const char *)hw_rx_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x02);
+			break;
+		case RxAddressPipe::RX_ADDR_P2:
+			// set rx addr to pipe 2
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P2, (const char *)hw_rx_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x04);
+			break;
+		case RxAddressPipe::RX_ADDR_P3:
+			// set rx addr to pipe 3
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P3, (const char *)hw_rx_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x08);
+			break;
+		case RxAddressPipe::RX_ADDR_P4:
+			// set rx addr to pipe 4
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P4, (const char *)hw_rx_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x10);
+			break;
+		case RxAddressPipe::RX_ADDR_P5:
+			// set rx addr to pipe 5
+			spi_write_register(RegisterAddress::REG_RX_ADDR_P5, (const char *)hw_rx_addr, 5);
+			// enable rx addr
+			spi_write_register(RegisterAddress::REG_EN_RXADDR, 0x20);
+			break;
+	}
+}
+
 void NRF24L01::send_packet(const void *tx_packet, uint8_t length)
 {
 	set_com_ce(0);
