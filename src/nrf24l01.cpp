@@ -213,6 +213,7 @@ void NRF24L01::set_mode(OperationMode mode)
 	// write new value config register
 	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
 
+	_mode = mode;
 }
 
 NRF24L01::OperationMode NRF24L01::mode(void)
