@@ -208,7 +208,7 @@ void NRF24L01::set_mode(OperationMode mode)
 		reg_config |= (1 << 0);
 	} else {
 		// Tx control
-		reg_config &= 0xF7;
+		reg_config &= 0xF6;
 	}
 	// write new value config register
 	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
