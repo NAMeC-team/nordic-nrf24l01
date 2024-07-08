@@ -188,6 +188,10 @@ public:
 
 	uint8_t config_status_register(void);
 
+    uint8_t spi_read_register(RegisterAddress register_address);
+
+    void spi_read_register(RegisterAddress register_address, uint8_t *value, uint8_t length);
+
 private:
 	SPI *_spi;
 	DigitalOut _com_cs;
@@ -210,10 +214,6 @@ private:
 	void spi_write_register(RegisterAddress register_address, uint8_t value);
 
 	void spi_write_register(RegisterAddress register_address, const char *value, uint8_t length);
-
-	uint8_t spi_read_register(RegisterAddress register_address);
-
-	void spi_read_register(RegisterAddress register_address, uint8_t *value, uint8_t length);
 
 	uint8_t spi_single_write(uint8_t value);
 
