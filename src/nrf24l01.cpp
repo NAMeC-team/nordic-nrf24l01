@@ -661,6 +661,40 @@ void NRF24L01::spi_write_payload(const char *buffer, uint8_t length)
 #endif
 }
 
+void NRF24L01::spi_write_ack_payload(const char *buffer, uint8_t length, uint8_t pipe)
+{
+    uint8_t reg_op = static_cast<uint8_t>(RegisterOperation::OP_ACK_TX_P0) | pipe;
+
+#ifdef _SPI_API_WITHOUT_CS_
+    spi_select();
+    _spi->write(reg_op);
+    while (length--) {
+        _spi->write(*buffer++);
+    }
+    spi_deselect();
+#else
+    static char *data;
+	static char resp[2];
+
+	// create a dynamic buffer to use mbed spi API
+	data = new char[length];
+
+	// formatting data
+	data[0] = static_cast<char>(RegisterAddress::OP_TX);
+
+	for (int i = 1; i < length; i++) {
+		data[i] = *buffer;
+		buffer++;
+	}
+	spi_select();
+	//TODO: ignore response?
+	_spi->write(data, length, resp, sizeof(resp));
+	spi_deselect();
+
+	delete data;
+#endif
+}
+
 void NRF24L01::spi_read_payload(char* buffer, uint8_t length)
 {
 

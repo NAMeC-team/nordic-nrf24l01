@@ -29,7 +29,11 @@ public:
 		OP_TX               = 0xa0,
 		OP_NOP              = 0xff,
 		OP_FLUSH_TX			= 0xE1,
-		OP_FLUSH_RX			= 0xE2
+		OP_FLUSH_RX			= 0xE2,
+
+        // in RX mode, write payload ACK to pipe P
+        // use (val | pipe) to set pipe (between 0b000 and 0b101)
+        OP_ACK_TX_P0      = 0xa8
 	};
 
 	enum class RegisterAddress : uint8_t {
@@ -204,6 +208,8 @@ private:
 	void spi_deselect(void);
 
 	void spi_write_payload(const char *buffer, uint8_t length);
+
+    void spi_write_ack_payload(const char *buffer, uint8_t length);
 
 	void spi_read_payload(char* buffer, uint8_t length);
 
