@@ -185,6 +185,18 @@ void NRF24L01::power_up(void)
 	spi_write_register(RegisterAddress::REG_CONFIG, reg_config);
 }
 
+void NRF24L01::enable_payload_ack_mode(bool enable) {
+    uint8_t reg_feature = spi_read_register(RegisterAddress::REG_FEATURE);
+
+    if (enable) {
+        reg_feature = reg_feature & 0x01;
+    }
+    else {
+        reg_feature = reg_feature ^ 0x01;
+    }
+    spi_write_register(RegisterAddress::REG_FEATURE, reg_feature);
+}
+
 void NRF24L01::power_down(void)
 {
 	uint8_t reg_config = 0;

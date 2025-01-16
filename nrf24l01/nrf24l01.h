@@ -148,6 +148,8 @@ public:
 
     void enable_dynamic_payload(bool enable);
 
+    void enable_payload_ack_mode(bool enable);
+
 	void set_payload_size(RxAddressPipe rx_addr_pipe, uint8_t payload_size);
 
 	uint8_t payload_size(void);
