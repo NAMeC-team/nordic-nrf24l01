@@ -265,6 +265,21 @@ void NRF24L01::set_auto_acknowledgement(uint8_t pipe, bool enable)
 	}
 }
 
+void NRF24L01::enable_dynamic_payload(bool enable) {
+    uint8_t reg_feature = spi_read_register(RegisterAddress::REG_FEATURE);
+    if (enable) {
+        // enable dynamic payload feature
+        reg_feature = reg_feature | 0x02;
+        // enable for all pipes
+        spi_write_register(RegisterAddress::REG_DYNPD, 0x3F);
+    } else {
+        reg_feature = reg_feature ^ 0x02;
+        spi_write_register(RegisterAddress::REG_DYNPD, 0x00);
+    }
+
+    spi_write_register(RegisterAddress::REG_FEATURE, reg_feature);
+}
+
 void NRF24L01::set_payload_size(RxAddressPipe rx_addr_pipe, uint8_t payload_size)
 {
 	if (payload_size > MAX_PAYLOAD_SIZE) {
