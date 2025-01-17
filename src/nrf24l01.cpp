@@ -277,7 +277,7 @@ void NRF24L01::set_auto_acknowledgement(uint8_t pipe, bool enable)
 	}
 }
 
-void NRF24L01::load_auto_ack_payload(const char *buffer, uint8_t length, RxAddressPipe pipe) {
+void NRF24L01::load_auto_ack_payload(const void *buffer, uint8_t length, RxAddressPipe pipe) {
 	if (length > MAX_PAYLOAD_SIZE) {
 		length = MAX_PAYLOAD_SIZE;
 	}
