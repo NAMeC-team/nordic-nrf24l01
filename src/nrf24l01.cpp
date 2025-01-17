@@ -277,6 +277,14 @@ void NRF24L01::set_auto_acknowledgement(uint8_t pipe, bool enable)
 	}
 }
 
+void NRF24L01::load_auto_ack_payload(const char *buffer, uint8_t length) {
+	if (length > MAX_PAYLOAD_SIZE) {
+		length = MAX_PAYLOAD_SIZE;
+	}
+	
+	spi_write_ack_payload(buffer, length);
+}
+
 void NRF24L01::enable_dynamic_payload(bool enable) {
     uint8_t reg_feature = spi_read_register(RegisterAddress::REG_FEATURE);
     if (enable) {

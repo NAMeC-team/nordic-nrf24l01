@@ -182,6 +182,8 @@ public:
 
 	RFoutputPower rf_output_power(void);
 
+	void load_auto_ack_payload(const char *buffer, uint8_t length);
+
 	void flush_rx(void);
 
 	void flush_tx(void);
