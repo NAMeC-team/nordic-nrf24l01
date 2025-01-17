@@ -213,7 +213,7 @@ private:
 
 	void spi_write_payload(const char *buffer, uint8_t length);
 
-    void spi_write_ack_payload(const char *buffer, uint8_t length);
+    void spi_write_ack_payload(const char *buffer, uint8_t length, uint8_t pipe);
 
 	void spi_read_payload(char* buffer, uint8_t length);
 
