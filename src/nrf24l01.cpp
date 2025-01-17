@@ -283,7 +283,7 @@ void NRF24L01::load_auto_ack_payload(const void *buffer, uint8_t length, RxAddre
 	}
 
     uint8_t i_pipe = static_cast<uint8_t>(pipe);
-	spi_write_ack_payload(buffer, length, i_pipe);
+	spi_write_ack_payload((const char *) buffer, length, i_pipe);
 }
 
 void NRF24L01::enable_dynamic_payload(bool enable) {
