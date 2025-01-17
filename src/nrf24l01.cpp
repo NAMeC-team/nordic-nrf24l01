@@ -277,12 +277,13 @@ void NRF24L01::set_auto_acknowledgement(uint8_t pipe, bool enable)
 	}
 }
 
-void NRF24L01::load_auto_ack_payload(const char *buffer, uint8_t length) {
+void NRF24L01::load_auto_ack_payload(const char *buffer, uint8_t length, RxAddressPipe pipe) {
 	if (length > MAX_PAYLOAD_SIZE) {
 		length = MAX_PAYLOAD_SIZE;
 	}
-	
-	spi_write_ack_payload(buffer, length);
+
+    uint8_t i_pipe = static_cast<uint8_t>(pipe);
+	spi_write_ack_payload(buffer, length, i_pipe);
 }
 
 void NRF24L01::enable_dynamic_payload(bool enable) {
@@ -715,7 +716,7 @@ void NRF24L01::spi_write_ack_payload(const char *buffer, uint8_t length, uint8_t
 	data = new char[length];
 
 	// formatting data
-	data[0] = static_cast<char>(RegisterAddress::OP_TX);
+	data[0] = static_cast<char>(reg_op);
 
 	for (int i = 1; i < length; i++) {
 		data[i] = *buffer;
