@@ -168,6 +168,8 @@ public:
 
 	void attach_receive_address_to_pipe(RxAddressPipe rx_address_pipe, uint8_t *hw_rx_addr);
 
+    void set_auto_retransmit_max_count(uint8_t count);
+
 	void send_packet(const void *buffer, uint8_t length);
 
 	void start_transfer(void);

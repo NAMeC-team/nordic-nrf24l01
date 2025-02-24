@@ -771,6 +771,16 @@ void NRF24L01::spi_write_register(RegisterAddress register_address, uint8_t valu
 #endif
 }
 
+void NRF24L01::set_auto_retransmit_max_count(uint8_t count)
+{
+    if (count > 15)
+        count = 15;
+
+    uint8_t reg_retr = spi_read_register(NRF24L01::RegisterAddress::REG_SETUP_RETR);
+    reg_retr = reg_retr | count;
+    spi_write_register(NRF24L01::RegisterAddress::REG_SETUP_RETR, reg_retr);
+}
+
 void NRF24L01::spi_write_register(RegisterAddress register_address, const char *value, uint8_t length)
 {
 #ifdef _SPI_API_WITHOUT_CS_
