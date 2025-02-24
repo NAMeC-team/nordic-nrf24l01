@@ -781,6 +781,15 @@ void NRF24L01::set_auto_retransmit_max_count(uint8_t count)
     spi_write_register(NRF24L01::RegisterAddress::REG_SETUP_RETR, reg_retr);
 }
 
+void NRF24L01::display_registers(void)
+{
+    printf("CONFIG: %x\n", spi_read_register(NRF24L01::RegisterAddress::REG_CONFIG));
+    printf("STATUS: %x\n", spi_read_register(NRF24L01::RegisterAddress::REG_STATUS));
+    printf("DYNPD: %x\n", spi_read_register(NRF24L01::RegisterAddress::REG_DYNPD));
+    printf("SETUP_RETR: %x\n", spi_read_register(NRF24L01::RegisterAddress::REG_SETUP_RETR));
+    printf("FEATURE: %x\n", spi_read_register(NRF24L01::RegisterAddress::REG_FEATURE));
+}
+
 void NRF24L01::spi_write_register(RegisterAddress register_address, const char *value, uint8_t length)
 {
 #ifdef _SPI_API_WITHOUT_CS_
