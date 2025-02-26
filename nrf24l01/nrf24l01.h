@@ -33,7 +33,10 @@ public:
 
         // in RX mode, write payload ACK to pipe P
         // use (val | pipe) to set pipe (between 0b000 and 0b101)
-        OP_ACK_TX_P0      = 0xa8
+        OP_ACK_TX_P0        = 0xa8,
+
+        // enable extra features
+        OP_ACTIVATE         = 0x50
 	};
 
 	enum class RegisterAddress : uint8_t {
@@ -116,7 +119,7 @@ public:
 
 	NRF24L01(SPI *spi, PinName com_cs, PinName com_ce, PinName irq);
 
-	void initialize(OperationMode mode, DataRate data_rate, uint16_t rf_frequency);
+	void initialize(OperationMode mode, DataRate data_rate, uint16_t rf_frequency, bool feature_activate);
 
 	void attach(Callback<void()> func);
 
@@ -196,6 +199,15 @@ public:
 
 	void rx_address(RxAddressPipe rx_address_pipe, uint8_t *rx_addr);
 
+    /**
+     * Activates or deactivates additional features :
+     * ACK payload, W_TX_PAYLOAD_NOACK, R_RX_PL_WID.
+     * If not enabled, bits set in the FEATURE register are ignored.
+     * This function can only be called during power-down and standby modes only.
+     * @param feature_activate Whether the additional features should be activated
+     */
+    void set_feature_enable(bool feature_activate);
+
 	uint8_t status_register(void);
 
 	uint8_t fifo_status_register(void);
@@ -212,6 +224,7 @@ private:
 	OperationMode _mode;
 	DataRate _data_rate;
 	RFoutputPower _rf_output_power;
+    bool _feature_activated;
 
 	void spi_select(void);
 

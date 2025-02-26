@@ -39,6 +39,7 @@ NRF24L01::NRF24L01(SPI *spi, PinName com_ce, PinName irq):
 	_mode = OperationMode::POWER_DOWN;
 	_data_rate = DataRate::_2MBPS;
 	_rf_output_power = RFoutputPower::_0dBm;
+    _feature_activated = false;
 }
 
 NRF24L01::NRF24L01(SPI *spi, PinName com_cs, PinName com_ce, PinName irq):
@@ -53,9 +54,10 @@ NRF24L01::NRF24L01(SPI *spi, PinName com_cs, PinName com_ce, PinName irq):
 	_mode = OperationMode::TRANSCEIVER;
 	_data_rate = DataRate::_2MBPS;
 	_rf_output_power = RFoutputPower::_0dBm;
+    _feature_activated = false;
 }
 
-void NRF24L01::initialize(OperationMode mode, DataRate data_rate, uint16_t rf_frequency)
+void NRF24L01::initialize(OperationMode mode, DataRate data_rate, uint16_t rf_frequency, bool feature_activate)
 {
 	// set mode to the member
 	_mode = mode;
@@ -71,6 +73,9 @@ void NRF24L01::initialize(OperationMode mode, DataRate data_rate, uint16_t rf_fr
 
 	// enable CRC
 	set_crc(CRCwidth::NONE);
+
+    // enable extra FEATUREs
+    set_feature_enable(feature_activate);
 
 	// set mode and power up
 	set_power_up_and_mode(mode);
@@ -788,6 +793,39 @@ void NRF24L01::display_registers(void)
     printf("DYNPD: %x\n", spi_read_register(NRF24L01::RegisterAddress::REG_DYNPD));
     printf("SETUP_RETR: %x\n", spi_read_register(NRF24L01::RegisterAddress::REG_SETUP_RETR));
     printf("FEATURE: %x\n", spi_read_register(NRF24L01::RegisterAddress::REG_FEATURE));
+}
+
+void NRF24L01::set_feature_enable(bool enable)
+{
+    if (enable != _feature_activated) {
+
+#ifdef _SPI_API_WITHOUT_CS_
+        spi_select();
+        _spi->write(static_cast<uint8_t>(RegisterOperation::OP_ACTIVATE));
+        _spi->write(0x73);
+        spi_deselect();
+#else
+        static char *data;
+        static char resp[2];
+
+        // create a dynamic buffer to use mbed spi API
+        uint8_t length = 2;
+        data = new char[length];
+
+        // formatting data
+        data[0] = static_cast<uint8_t>(RegisterOperation::OP_ACTIVATE);
+        data[1] = 0x73;
+
+        spi_select();
+        //TODO: ignore response?
+        _spi->write(data, length, resp, sizeof(resp));
+        spi_deselect();
+
+        delete data;
+#endif
+
+        _feature_activated = enable;
+    }
 }
 
 void NRF24L01::spi_write_register(RegisterAddress register_address, const char *value, uint8_t length)
